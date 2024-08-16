@@ -2,6 +2,9 @@ Claro! A seguir, apresento um exemplo de descrição para o projeto que você po
 
 ---
 
+
+![Descrição da Imagem](demo1.png)
+
 # Face Mesh Detection with MediaPipe and Three.js
 
 **Face Mesh Detection with MediaPipe** é um projeto de demonstração que utiliza o framework [Next.js](https://nextjs.org/) para criar uma aplicação web que exibe detecção de malha facial em tempo real usando a biblioteca [MediaPipe](https://google.github.io/mediapipe/). Além disso, a aplicação integra uma cena 3D utilizando [Three.js](https://threejs.org/) para uma visualização interativa adicional.
