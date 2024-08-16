@@ -1,0 +1,123 @@
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment';
+import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min';
+import Stats from 'three/examples/jsm/libs/stats.module';
+
+const ThreeScene = () => {
+  const mountRef = useRef(null);
+  const [mixer, setMixer] = useState(null);
+  const [clock] = useState(new THREE.Clock());
+  const modelRef = useRef(null);
+
+  useEffect(() => {
+    const container = mountRef.current;
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20);
+    camera.position.set(-1.8, 0.8, 3);
+
+    const scene = new THREE.Scene();
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 5;
+    controls.minAzimuthAngle = -Math.PI / 2;
+    controls.maxAzimuthAngle = Math.PI / 2;
+    controls.maxPolarAngle = Math.PI / 1.8;
+    controls.target.set(0, 0.15, -0.2);
+
+    const environment = new RoomEnvironment(renderer);
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.background = new THREE.Color(0x666666);
+    scene.environment = pmremGenerator.fromScene(environment).texture;
+
+    const stats = new Stats();
+    container.appendChild(stats.dom);
+
+    const ktx2Loader = new KTX2Loader()
+      .setTranscoderPath('https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/libs/basis/')
+      .detectSupport(renderer);
+
+    const gltfLoader = new GLTFLoader()
+      .setKTX2Loader(ktx2Loader)
+      .setMeshoptDecoder(MeshoptDecoder);
+
+    const loadModel = () => {
+      if (modelRef.current) return; // Model already loaded
+
+      gltfLoader.load('/models/facecap.glb', (gltf) => {
+        const mesh = gltf.scene.children[0];
+        scene.add(mesh);
+        modelRef.current = mesh;
+
+        const newMixer = new THREE.AnimationMixer(mesh);
+        gltf.animations.forEach((clip) => {
+          const action = newMixer.clipAction(clip);
+          action.play();
+          action.loop = THREE.LoopRepeat;
+        });
+        setMixer(newMixer);
+
+        const head = mesh.getObjectByName('mesh_2');
+        if (head) {
+          const influences = head.morphTargetInfluences;
+          const gui = new GUI();
+          gui.close();
+          for (const [key, value] of Object.entries(head.morphTargetDictionary)) {
+            gui.add(influences, value, 0, 1, 0.01)
+              .name(key.replace('blendShape1.', ''))
+              .listen();
+          }
+        }
+      });
+    };
+
+    loadModel();
+
+    const animate = () => {
+      const delta = clock.getDelta();
+      if (mixer) mixer.update(delta);
+      renderer.render(scene, camera);
+      controls.update();
+      stats.update();
+      requestAnimationFrame(animate);
+    };
+    animate();
+
+    const onWindowResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+
+    window.addEventListener('resize', onWindowResize);
+
+    return () => {
+      container.removeChild(renderer.domElement);
+      window.removeEventListener('resize', onWindowResize);
+
+      if (mixer) {
+        mixer.stopAllAction();
+      }
+      scene.clear();
+      modelRef.current = null;
+      stats.dom.remove();
+      controls.dispose();
+    };
+  }, [mixer, clock]);
+
+  return <div ref={mountRef} style={{ height: '100vh', margin: 0 }} />;
+};
+
+export default ThreeScene;

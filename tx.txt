@@ -1,0 +1,13 @@
+const Vosk = require('vosk');
+const { PassThrough } = require('stream');
+const model = new Vosk.Model('path/to/vosk-model');
+const recognizer = new Vosk.Recognizer(model, 16000);
+
+const audioStream = new PassThrough();
+// Aqui você deve enviar o áudio capturado para o stream `audioStream`
+
+audioStream.on('data', chunk => recognizer.accept(chunk));
+audioStream.on('end', () => {
+  const result = recognizer.finalResult();
+  console.log(`Texto transcrito: ${result.text}`);
+});
